@@ -1,0 +1,121 @@
+Atenção:
+- Não edite este ficheiro em programas como Word e afins. Use exclusivamente um editor de texto simples. Em caso de dúvida, use o editor do Spyder.
+- Não altere a estrutura deste ficheiro. Preencha as respostas apenas nos espaços respectivos (a seguir à tag R#:)
+- Pode adicionar linhas no espaço para as respostas mas as respostas devem ser sucintas e directas.
+
+QUESTÔES:
+	
+Q1: Considerando os dados fornecidos, explique a necessidade de standardizar os valores dos atributos.
+R1: Considerando os dados fornecidos, é necessário standardizar os valores dos atributos para que estes fiquem com escalas semelhantes.
+
+Variação (range) de valores na variável 1 => [-5.601, 6.103]
+Variação (range) de valores na variável 2 => [-42.0, 42.148]
+Variação (range) de valores na variável 3 => [-11.713, 23.998]
+Variação (range) de valores na variável 4 => [-5.864, 4.953]
+
+Trecho de 4 exemplos presentes no conjunto de dados de treino fornecido (TP1_train.tsv):
+	Variável 1    Variável 2    Variável 3    Variável 4    Class
+Ex1	0.503	      4.877	    3.067	  -1.112	1
+Ex2	-0.015        8.781	    5.21	  1.145		1
+Ex3	-1.823	      9.667	    2.263	  0.064		1
+Ex4	2.074	      -12.91	    11.54	  0.054		0
+ 
+A distância euclidiana entre o exemplo 1 (Ex1) e o exemplo 3 (Ex3), na variável 3 e 4, do trecho de dados acima é: Ex1-Ex3=[0.804, 1.176].
+Considerando a variação de valores das features 3 e 4 dos exemplos 1 e 3, podemos observar que apesar das distâncias euclidianas serem parecidas (0,804 e 1,176), a percentagem de variação é muito maior na variável 4 ( 10,9% ) do que na variável 3, onde é apenas 0,01%. Isto deve-se ao facto das duas variáveis terem diferentes escalas.
+Ao standardizar os valores dos atributos estamos a eliminar a diferença de escalas, pois a coluna de cada variável vai ficar com uma média de 0 e um desvio padrão de 1.
+	
+Q2: Explique como calculou os parâmetros para standardização e como os usou no conjunto de teste.
+R2: Os parâmetros que usámos para a standardization foram a média e o desvio padrão de cada variável do conjunto de dados de treino.
+Para calcular a média, fazemos a média coluna a coluna de todos os dados de treino, obtendo assim o valor médio para cada variável dos dados de treino. (means = np.mean(X_r,axis=0))
+Para calcular o desvio padrão, calculamos o desvio padrão coluna a coluna de todos os dados de treino, obtendo assim o desvio padrão para cada variável dos dados de treino. (stdevs = np.std(X_r,axis=0))
+Por fim para standardizar os valores dos atributos do conjunto de teste, subtraímos a cada coluna das variáveis a média de cada coluna calculada com o conjunto de dados de treino e depois dividimos cada coluna das variáveis pelo desvio padrão de cada coluna calculado com o conjunto de dados de treino. (X_t = (X_t-means)/stdevs)
+	
+Q3: Explique como calculou a probabilidade a priori de um exemplo pertencer a uma classe (a probabilidade antes de ter em conta os valores dos atributos do exemplo) na sua implementação do classificador Naïve Bayes. Pode incluir um trecho relevante do código se ajudar a explicar.
+R3: Para calcular a probabilidade a priori de um exemplo pertencer a uma classe utilizámos os dados de treino. Calculamos o número de exemplos com classe 0 nesses dados e dividimos pelo número total de dados. Depois calculamos o número de exemplos com classe 1 e dividimos pelo número total de dados. Por fim, para cada classe calculamos o logaritmo desse valor para posteriormente podermos utilizar a soma deste logaritmo com os logaritmos das probabilidades condicionadas das variáveis de cada classe, de modo a evitar multiplicações e prevenir erros de overflow e underflow. 
+Trecho de código:
+   mat_train = np.loadtxt('TP1_train.tsv', delimiter='\t') 	#Load train file info
+   data = shuffle(mat_train)					#Shuffle train data
+   Y_r = data[:,4]						#Get classes
+   c_test_0 = math.log(Y_r[Y_r==0].size/Y_r.size, math.e)	#Get log(p(class=0))
+   c_test_1 = math.log(Y_r[Y_r==1].size/Y_r.size, math.e)	#Get log(p(class=1))
+
+Q4: Explique como o seu classificador Naïve Bayes prevê a classe a que um exemplo de teste pertence. Pode incluir um trecho relevante do código se ajudar a explicar.
+R4: Assumimos que as várias variáveis são condicionalmente independentes.
+A probabilidade do exemplo de teste pertencer a uma das classes foi calculada através da soma do logaritmo da probabilidade a priori dos dados de treino pertencerem a essa classe e os logaritmos da densidade Kernel das diferentes variáveis nessa classe. Para calcular o logaritmo da densidade Kernel em cada ponto, os dados foram divididos consoante as classes. 
+   f_train = X_r[Y_r==0]
+   r_train = X_r[Y_r==1]
+Depois, para cada variável de cada classe foi criado e ajustado um modelo de densidade Kernel (através do método kde.fit) com os dados de treino para obter a densidade. 
+Para saber a que classe um exemplo de teste pertence, calculou-se (através da função kde.score_samples), o logaritmo da probabilidade de cada ponto pertencer a cada variável de cada classe. 
+   def kernel_test(fit_data, test_data, bandwidth):
+      kde = KernelDensity(kernel='gaussian', bandwidth=bandwidth)
+      kde.fit(fit_data)
+      return kde.score_samples(test_data)
+Somando as várias probabilidades (a probabilidade de cada variável) obtidas para cada classe, obteve-se a densidade desse ponto nas várias classes. 
+   for i in range(0,4):
+      c_test_0 += kernel_test(f_train[:, [i]], X_t[:, [i]], bandwidth)
+      c_test_1 += kernel_test(r_train[:, [i]], X_t[:, [i]], bandwidth)
+Por fim, o nosso algoritmo de Naive Bayes prevê que o ponto pertence à classe que tiver maior densidade (através da função np.argmax([c_test_0, c_test_1], axis = 0)).
+
+Q5: Explique que efeito tem o parâmetro de bandwidth no seu classificador.
+R5: O efeito do parâmetro bandwidth no nosso classificador de Naïves Bayes é ajustar a sensibilidade do classificador, evitando overfitting ou underfitting. Diferentes valores para a bandwidth mudam a forma da curva de kernel. Quanto menor a bandwidth, maior a importância dos pontos mais próximos e menor a dos pontos mais longínquos.
+
+Q6: Explique que efeito tem o parâmetro C no classificador Logistic Regression.
+R6: No classificador Logistic Regression o efeito do parâmetro C é ajustar a fronteira que separa as várias classes do modelo criado, de modo a evitar overfitting ou underfitting. Acontece overfitting quando um modelo se ajusta muito bem ao conjunto de dados observados (por exemplo os dados de treino), mas se mostra ineficaz de prever novos resultados. Por exemplo, um valor para o C que coloque a fronteira muito ajustada ao conjunto de treino pode vir a revelar-se negativo, pois muito provavelmente, irão existir bastantes classificações erradas pois o modelo ajusta-se demasiado ao conjunto de treino.
+Uma forma de combater o overfitting é usando a regularization, que força a que a inclinação da logistic regression seja menos acentuada. Ou seja, diminui as discrepâncias existentes entre as várias classes do modelo, tornando-o mais capaz de prever futuros dados. 
+No caso da classe Logistic Regression (usada no projeto),a regularization é feita através do parâmetro C.
+
+Q7: Explique como determinou o melhor parâmetro de bandwidth e C para o seu classificador e o classificador Logistic Regression. Pode incluir um trecho relevante do código se ajudar a explicar.
+R7:
+Parâmetro c: 
+Para determinar o melhor parâmetro C na regressão logística testamos valores para C de 10^-2 até 10^12 com uma escala exponencial (ou seja, 10^-2, 10^-1, ..., 10^11, 10^12). 
+   for i in range(-2, 13):
+      c_value = 10**i
+      ...
+Para cada valor de C que testamos fazemos a validação cruzada utilizando 5 folds estratificadas e obtemos o erro de validação. Se esse erro de validação for o menor até agora, guardamos o valor de C que nos permitiu obter esse valor. 
+No final de testarmos todos os valores para C, teremos guardado o valor de C que nos permitiu obter o menor erro de validação. Esse será o valor escolhido como melhor valor para o parâmetro C para a Logistic Regression.
+
+Parâmetro bandwidth:
+Para determinar o melhor parâmetro de bandwidth para o nosso classificador Naïve Bayes testamos valores para a bandwidth de 0.02 a 0.6 com um passo de 0.02. 
+   for i in range(1, 31):
+      bandwidth = i*0.02
+      ...
+Para cada valor da bandwidth que testamos fazemos a validação cruzada com 5 folds estratificadas utilizando o conjunto de treino. 
+Para fazer a validação cruzada utilizamos o kernel density com o kernel gaussiano e o valor da bandwidth que está a ser testado.
+   def kernel_estimator(fit_data, train_data, valid_data, bandwidth):
+      kde = KernelDensity(kernel='gaussian', bandwidth=bandwidth)
+      kde.fit(fit_data)
+      return kde.score_samples(train_data), kde.score_samples(valid_data)
+Para concluir a validação cruzada para cada ponto (tanto para o conjunto de treino como para o conjunto de validação), comparamos a probabilidade, fornecida pelo nosso classificador naïve bayes, de pertencer à classe 0 ou 1 e escolhemos a maior (através da função argmax). Por fim, comparamos a classe esperada com a real e dividimos o número de exemplos classificados de forma errada pelo número total de exemplos testados. 
+   t_predict = np.argmax([c_train_0, c_train_1], axis = 0) == Y[train_ix]
+   train_error = (train_ix.size-np.sum(t_predict))/train_ix.size
+   v_predict = np.argmax([c_valid_0, c_valid_1], axis = 0) == Y[valid_ix]
+   valid_error = (valid_ix.size-np.sum(v_predict))/valid_ix.size
+Se esse erro de validação for o menor até agora, guardamos o valor da bandwidth que nos permitiu obter esse valor. No final de testarmos todos os valores para a bandwidth, teremos guardado o valor para bandwidth que nos permitiu obter o menor erro de validação. Esse será o valor escolhido como melhor valor para o parâmetro bandwidth para o nosso classificador Naïve Bayes. 
+
+Q8: Explique como obteve a melhor hipótese para cada um dos classificadores depois de optimizados os parâmetros.
+R8: A melhor hipótese para o classificador da logistic regression, foi obtida criando um modelo da logistic regression utilizando o melhor parâmetro C encontrado e uma tolerância de 1e-10. Para o classificador Gaussian Naive Bayes foi obtida chamando o método GaussianNB() da biblioteca sklearn.naive_bayes.
+Para o nosso classificador de naive bayes obtivémos a melhor hipótese criando 8 Kernel Densities diferentes, um para cada variável de cada classe, utilizando sempre a melhor bandwidth para criar os diferentes Kernel Densities. Com os diferentes Kernel Densities, obtivémos, através do método score_samples (utilizando o conjunto de teste na chamada deste método), o logaritmo da probabilidade das diferentes variáveis de cada classe. Depois, somamos os diferentes logaritmos de cada classe e no final comparamos, ponto a ponto, os logaritmos das duas classes, prevendo sempre que o ponto irá ter a classe com maior probabilidade nesse ponto (maior logaritmo)
+Todos os modelos acima descritos foram treinados com todo o conjunto de dados de treino.
+
+Q9: Mostre os melhores valores dos parâmetros optimizados, a estimativa do erro verdadeiro de cada uma das hipóteses que obteve (o seu classificador e os dois fornecidos pela biblioteca), os intervalos do número esperado de erros dados pelo teste normal aproximado e os valores dos testes de McNemar e discuta o que pode concluir daí.
+R9:
+---------------- Best Parameters -----------------
+Best C :  10
+Best Bandwidth :  0.24
+------------------- True Error -------------------
+Logistic Error:  0.10685805422647532
+Naïve Bayes Error:  0.11244019138755981
+Gaussian Naïve Bayes Error : 0.12998405103668265
+--------------- Normal Classifier ----------------
+Logistic Regression:  134  +/-  21.442168949301717
+Naïve Bayes:  141  +/-  21.926254040942393
+Gaussian Naive Bayes:  163  +/-  23.34067871623722
+---------------- McNemar's test ------------------
+Logistic Regression vs Naïve Bayes:  0.5373134328358209
+Logistic Regression vs Gaussian Naïve Bayes test:  12.444444444444445
+Naïve Bayes vs Gaussian Naïve Bayes test:  9.58695652173913
+
+De acordo com os intervalos do número esperado de erros, dado pelo teste normal aproximado, não existe uma diferença significativa nos intervalos dos três classificadores e não podemos excluir a hipótese de que os três classificadores têm o mesmo true error, pois há uma sobreposição dos intervalos.
+De acordo com os valores dos testes de McNemar, com uma percentagem de confiança de 95%, podemos concluir que existe uma diferença significativa de performance entre o Gaussian Naive Bayes com a Logistic Regression e entre o Gaussian Naive Bayes com o Naïve Bayes, pois nestes dois casos o teste do McNemar's dá um valor superior a 3.84. No caso do teste da Logistic Regression com o Naïve Bayes, concluímos que não existe uma diferença significativa, comportando-se assim de forma idêntica.
+Por fim, uma vez que estatísticamente o Logistic Regression e o Naïve Bayes têm um menor número de erros do que o Gaussian Naïve Bayes, concluímos que estes são provavelmente melhores do que o Gaussian Naïve Bayes.
+
