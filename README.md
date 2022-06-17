@@ -1,1 +1,1 @@
-# Naive-Bayes-vsSupport-Vector-Machine-classifiers
+# Naive-Bayes-vs-Support-Vector-Machine-classifiers
